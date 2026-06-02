@@ -1,0 +1,18 @@
+# depslib dependency file v1.0
+1780346975 source:c:\users\admin\onedrive\escritorio\ejemplo c\examen prueba\tp_programacion_concurrente\semaforo.cpp
+	"semaforo.h"
+	<mutex>
+	<condition_variable>
+
+1780353140 c:\users\admin\onedrive\escritorio\ejemplo c\examen prueba\tp_programacion_concurrente\semaforo.h
+	<mutex>
+	<condition_variable>
+
+1780427053 source:c:\users\admin\onedrive\escritorio\ejemplo c\examen prueba\tp_programacion_concurrente\main.cpp
+	<iostream>
+	<thread>
+	<mutex>
+	<chrono>
+	<queue>
+	"semaforo.h"
+
