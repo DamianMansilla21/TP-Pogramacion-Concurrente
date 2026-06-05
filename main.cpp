@@ -33,22 +33,21 @@ int contadorAltas = 0;
 int marcador = 0;
 
 Semaforo hayDatosBuffer1; //waitingQueue
-Semaforo hayDatosBuffer2; //Processing Queue
+//Semaforo hayDatosBuffer2; //Processing Queue
 Semaforo HayEspacioBuffer2; //Processing Queue
 
 
 void productor() //Guardamos los paquetes en el buffer 1
 {
-    while(pedido>0)
-    {
+    while(pedido>0){
         mtxPedido.lock();
-    if(pedido > 0){
-        pedido--;
-        mtxPedido.unlock();
-    } else {
-        mtxPedido.unlock();
-        break;
-    }
+        if(pedido > 0){
+            pedido--;
+            mtxPedido.unlock();
+        } else {
+            mtxPedido.unlock();
+            break;
+        }
 
         Paquete p;
 
@@ -84,51 +83,14 @@ void productor() //Guardamos los paquetes en el buffer 1
         signal(hayDatosBuffer1);
 
         this_thread::sleep_for(chrono::milliseconds(90));
+
     }
 }
 
-void consumidor() //Saca los paquetes del buffer 2
+void consumidor()
 {
     while(paquetesPendientes > 0)
     {
-        wait(hayDatosBuffer2);
-
-        //control de pendientes
-        mtxPendientes.lock();
-        if(paquetesPendientes > 0){
-            paquetesPendientes--;
-            mtxPendientes.unlock();
-        } else {
-            mtxPendientes.unlock();
-            break;
-        }
-
-        Paquete p;
-
-        mtxBuffer2.lock();
-        p = buffer2.front(); //primer elementos
-        buffer2.pop();
-        mtxBuffer2.unlock();
-
-        signal(HayEspacioBuffer2);
-
-        mtxConsola.lock();
-
-        time_t t = chrono::system_clock::to_time_t(p.fechaDeCreacion);
-
-        cout << "ID: " << p.id << " Prioridad: " << p.prioridad << " Fecha: " << ctime(&t); // lo pasa a un texto legible
-
-        mtxConsola.unlock();
-    }
-
-}
-
-void cargarEnCinta()
-{
-    while(paquetesPendientes > 0)
-    {
-        paquetesPendientes--;
-
         wait(hayDatosBuffer1);
         wait(HayEspacioBuffer2);
 
@@ -136,40 +98,66 @@ void cargarEnCinta()
 
         Paquete p;
 
+        // Sacar de la Waiting Queue según prioridad
         mtxBuffer1.lock();
-
         if(contadorAltas < nivelPrioridad && marcador > 0)
         {
             p = buffer1.front();
+
             buffer1.erase(buffer1.begin());
+
             marcador--;
             contadorAltas++;
         }
         else if(marcador < buffer1.size())
         {
             p = buffer1[marcador];
+
             buffer1.erase(buffer1.begin() + marcador);
+
             contadorAltas = 0;
         }
         else if(marcador > 0)
         {
             p = buffer1.front();
+
             buffer1.erase(buffer1.begin());
+
             marcador--;
             contadorAltas++;
         }
-
         mtxBuffer1.unlock();
 
+        // Pasar a la cinta
         mtxBuffer2.lock();
         buffer2.push(p);
         mtxBuffer2.unlock();
 
         mtxConsola.lock();
-        std::cout << "paquete en cinta " << p.id << " prioridad " << p.prioridad << std::endl;
+        cout << "paquete en cinta "<< p.id<< " prioridad "<< p.prioridad<< endl;
         mtxConsola.unlock();
 
-        signal(hayDatosBuffer2);
+        // Procesarlo inmediatamente
+
+        mtxBuffer2.lock();
+        p = buffer2.front();
+        buffer2.pop();
+        mtxBuffer2.unlock();
+
+        signal(HayEspacioBuffer2);
+
+        mtxPendientes.lock();
+        paquetesPendientes--;
+        mtxPendientes.unlock();
+
+        mtxConsola.lock();
+
+        time_t t =chrono::system_clock::to_time_t(p.fechaDeCreacion);
+
+        cout << "Paquete procesado: ";
+        cout << "ID: " << p.id<< " Prioridad: " << p.prioridad<< " Fecha: " << ctime(&t);
+
+        mtxConsola.unlock();
     }
 }
 
@@ -178,22 +166,20 @@ int main()
 {
     init(HayEspacioBuffer2,5);
     init(hayDatosBuffer1,0);
-    init(hayDatosBuffer2,0);
+    //init(hayDatosBuffer2,0);
 
     thread p1(productor);
-    thread c1(cargarEnCinta);
-    thread c2(cargarEnCinta);
-    thread r1(consumidor);
+    thread c1(consumidor);
+    thread c2(consumidor);
 
     p1.join();
     c1.join();
     c2.join();
-    r1.join();
 
 
 }
-//mutex en zonas criticas
-//agregar funcion cargarEnCinta a la funcion Productor
+//mutex en zonas criticas/ evitar race conditions
 //añadir retardos
 //ejecutar los escenarios de pruebas
+
 
