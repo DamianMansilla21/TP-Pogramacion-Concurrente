@@ -164,6 +164,53 @@ void cargarEnCinta(){
 
 }
 
+/*
+    void cargarEnCinta(){
+
+    while(paquetesPendientes > 0){
+
+        wait(hayDatosBuffer1);
+        wait(HayEspacioBuffer2);
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(420));
+        mtxBuffer1.lock();
+
+        auto ahora = chrono::system_clock::now();
+        long long espera = 0;
+
+        if(!prioridadBaja.empty()){
+    espera = chrono::duration_cast<chrono::milliseconds>(ahora - prioridadBaja.front().fechaDeCreacion).count();
+}
+ //ser procesados tras un periodo de 6000ms
+        if(!prioridadBaja.empty() && espera > 6000){
+            mtxBuffer2.lock();
+            Paquete p = prioridadBaja.front();
+            prioridadBaja.pop();
+            buffer2.push(p);
+            mtxBuffer2.unlock();
+
+        } else if(!prioridadAlta.empty()){
+            mtxBuffer2.lock();
+            Paquete p = prioridadAlta.front();
+            prioridadAlta.pop();
+            buffer2.push(p);
+            mtxBuffer2.unlock();
+
+        } else if(!prioridadBaja.empty()){
+            mtxBuffer2.lock();
+            Paquete p = prioridadBaja.front();
+            prioridadBaja.pop();
+            buffer2.push(p);
+            mtxBuffer2.unlock();
+
+        }
+        mtxBuffer1.unlock();
+
+        signal(hayDatosBuffer2);
+    }
+
+}*/
+
 
 int main()
 {
