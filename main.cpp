@@ -32,6 +32,7 @@ int paquetesPendientes = pedido;
 int siguienteId = 1;
 int contadorAltas = 0;
 int marcador = 0;
+int totalProducidos = 0;
 
 Semaforo hayDatosBuffer1; //waitingQueue
 //Semaforo hayDatosBuffer2; //Processing Queue
@@ -77,7 +78,7 @@ void productor() //Guardamos los paquetes en el buffer 1
         std::cout << "paquete creado: ";
         std::cout << "ID: " << p.id << " Prioridad: " << p.prioridad << std::endl;
         mtxConsola.unlock();
-
+        totalProducidos++;
         mtxBuffer1.unlock();
 
 
@@ -193,6 +194,7 @@ int main()
     c1.join();
     c2.join();
 
+    std::cout << "Total de paquetes producidos: " << totalProducidos << endl;
 
 }
 //mutex en zonas criticas/ evitar race conditions
