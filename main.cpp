@@ -20,7 +20,9 @@ std::queue<Paquete> buffer2;//cinta
 std::mutex mtxBuffer1;
 std::mutex mtxBuffer2;
 std::mutex mtxConsola;
-
+std::mutex mtxPedido;
+std::mutex mtxPendientes;
+std::mutex mtxId;
 
 int pedido = 30;
 int nivelPrioridad = 5;
@@ -39,9 +41,21 @@ void productor() //Guardamos los paquetes en el buffer 1
 {
     while(pedido>0)
     {
+        mtxPedido.lock();
+    if(pedido > 0){
+        pedido--;
+        mtxPedido.unlock();
+    } else {
+        mtxPedido.unlock();
+        break;
+    }
+
         Paquete p;
 
+        mtxId.lock();
         p.id = siguienteId++;
+        mtxId.unlock();
+
         p.prioridad = rand() % 2;
         p.fechaDeCreacion = chrono::system_clock::now(); //Guardamos la fecha de hoy
 
@@ -70,9 +84,6 @@ void productor() //Guardamos los paquetes en el buffer 1
         signal(hayDatosBuffer1);
 
         this_thread::sleep_for(chrono::milliseconds(90));
-
-        pedido--;
-
     }
 }
 
@@ -81,6 +92,16 @@ void consumidor() //Saca los paquetes del buffer 2
     while(paquetesPendientes > 0)
     {
         wait(hayDatosBuffer2);
+
+        //control de pendientes
+        mtxPendientes.lock();
+        if(paquetesPendientes > 0){
+            paquetesPendientes--;
+            mtxPendientes.unlock();
+        } else {
+            mtxPendientes.unlock();
+            break;
+        }
 
         Paquete p;
 
@@ -98,8 +119,6 @@ void consumidor() //Saca los paquetes del buffer 2
         cout << "ID: " << p.id << " Prioridad: " << p.prioridad << " Fecha: " << ctime(&t); // lo pasa a un texto legible
 
         mtxConsola.unlock();
-
-        paquetesPendientes--;
     }
 
 }
@@ -108,6 +127,8 @@ void cargarEnCinta()
 {
     while(paquetesPendientes > 0)
     {
+        paquetesPendientes--;
+
         wait(hayDatosBuffer1);
         wait(HayEspacioBuffer2);
 
@@ -120,29 +141,21 @@ void cargarEnCinta()
         if(contadorAltas < nivelPrioridad && marcador > 0)
         {
             p = buffer1.front();
-
             buffer1.erase(buffer1.begin());
-
             marcador--;
-
             contadorAltas++;
         }
         else if(marcador < buffer1.size())
         {
             p = buffer1[marcador];
-
             buffer1.erase(buffer1.begin() + marcador);
-
             contadorAltas = 0;
         }
         else if(marcador > 0)
         {
             p = buffer1.front();
-
             buffer1.erase(buffer1.begin());
-
             marcador--;
-
             contadorAltas++;
         }
 
