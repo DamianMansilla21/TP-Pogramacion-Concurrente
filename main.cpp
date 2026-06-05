@@ -14,19 +14,21 @@ struct Paquete {
     std::chrono::system_clock::time_point fechaDeCreacion;
 };
 
-std::queue<Paquete> prioridadAlta;//estanteria
-std::queue<Paquete> prioridadBaja;
+std::vector<Paquete> buffer1;//estanteria
 std::queue<Paquete> buffer2;//cinta
 
 std::mutex mtxBuffer1;
 std::mutex mtxBuffer2;
 std::mutex mtxConsola;
 
-int pedido = 20;
+
+int pedido = 30;
+int nivelPrioridad = 5;
 
 int paquetesPendientes = pedido;
 int siguienteId = 1;
 int contadorAltas = 0;
+int marcador = 0;
 
 Semaforo hayDatosBuffer1; //waitingQueue
 Semaforo hayDatosBuffer2; //Processing Queue
@@ -45,30 +47,24 @@ void productor() //Guardamos los paquetes en el buffer 1
 
         //wait(HayEspacioBuffer1);
 
+        mtxBuffer1.lock();
+
         if(p.prioridad == 1){
 
-            mtxBuffer1.lock();
-            prioridadAlta.push(p);
+            buffer1.insert(buffer1.begin() + marcador, p);
 
-            mtxConsola.lock();
-            std::cout << "paquete creado: ";
-            cout << "ID: " << p.id << " Prioridad: " << p.prioridad << endl;
-            mtxConsola.unlock();
+            marcador++;
+        }else{
 
-            mtxBuffer1.unlock();
+            buffer1.push_back(p);
+        }
 
-         } else {
+        mtxConsola.lock();
+        std::cout << "paquete creado: ";
+        std::cout << "ID: " << p.id << " Prioridad: " << p.prioridad << std::endl;
+        mtxConsola.unlock();
 
-            mtxBuffer1.lock();
-            prioridadBaja.push(p);
-
-            mtxConsola.lock();
-            std::cout << "paquete creado: ";
-            cout << "ID: " << p.id << " Prioridad: " << p.prioridad << endl;
-            mtxConsola.unlock();
-
-            mtxBuffer1.unlock();
-         }
+        mtxBuffer1.unlock();
 
 
         signal(hayDatosBuffer1);
@@ -108,108 +104,61 @@ void consumidor() //Saca los paquetes del buffer 2
 
 }
 
-
-void cargarEnCinta(){
-
-    while(paquetesPendientes > 0){
-
+void cargarEnCinta()
+{
+    while(paquetesPendientes > 0)
+    {
         wait(hayDatosBuffer1);
         wait(HayEspacioBuffer2);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(420));
 
-        if(prioridadAlta.size()>0 && contadorAltas < 3){
+        Paquete p;
 
-            Paquete p = prioridadAlta.front();
-            prioridadAlta.pop();
-
-            buffer2.push(p);
-
-            mtxConsola.lock();
-            std::cout << "paquete en cinta: ";
-            cout << "ID: " << p.id << " Prioridad: " << p.prioridad << endl;
-            mtxConsola.unlock();
-
-            contadorAltas++;
-        } else if(prioridadBaja.size()>0){
-
-            Paquete p = prioridadBaja.front();
-            prioridadBaja.pop();
-
-            buffer2.push(p);
-
-            mtxConsola.lock();
-            std::cout << "paquete en cinta: ";
-            cout << "ID: " << p.id << " Prioridad: " << p.prioridad << endl;
-            mtxConsola.unlock();
-
-            contadorAltas = 0;
-        } else if(prioridadAlta.size()>0 ){
-
-            Paquete p = prioridadAlta.front();
-            prioridadAlta.pop();
-
-            buffer2.push(p);
-
-            mtxConsola.lock();
-            std::cout << " paquete en cinta: ";
-            cout << "ID: " << p.id << " Prioridad: " << p.prioridad << endl;
-            mtxConsola.unlock();
-
-            contadorAltas++;
-        }
-
-        signal(hayDatosBuffer2);
-    }
-
-}
-
-/*
-    void cargarEnCinta(){
-
-    while(paquetesPendientes > 0){
-
-        wait(hayDatosBuffer1);
-        wait(HayEspacioBuffer2);
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(420));
         mtxBuffer1.lock();
 
-        auto ahora = chrono::system_clock::now();
-        long long espera = 0;
+        if(contadorAltas < nivelPrioridad && marcador > 0)
+        {
+            p = buffer1.front();
 
-        if(!prioridadBaja.empty()){
-    espera = chrono::duration_cast<chrono::milliseconds>(ahora - prioridadBaja.front().fechaDeCreacion).count();
-}
- //ser procesados tras un periodo de 6000ms
-        if(!prioridadBaja.empty() && espera > 6000){
-            mtxBuffer2.lock();
-            Paquete p = prioridadBaja.front();
-            prioridadBaja.pop();
-            buffer2.push(p);
-            mtxBuffer2.unlock();
+            buffer1.erase(buffer1.begin());
 
-        } else if(!prioridadAlta.empty()){
-            mtxBuffer2.lock();
-            Paquete p = prioridadAlta.front();
-            prioridadAlta.pop();
-            buffer2.push(p);
-            mtxBuffer2.unlock();
+            marcador--;
 
-        } else if(!prioridadBaja.empty()){
-            mtxBuffer2.lock();
-            Paquete p = prioridadBaja.front();
-            prioridadBaja.pop();
-            buffer2.push(p);
-            mtxBuffer2.unlock();
-
+            contadorAltas++;
         }
+        else if(marcador < buffer1.size())
+        {
+            p = buffer1[marcador];
+
+            buffer1.erase(buffer1.begin() + marcador);
+
+            contadorAltas = 0;
+        }
+        else if(marcador > 0)
+        {
+            p = buffer1.front();
+
+            buffer1.erase(buffer1.begin());
+
+            marcador--;
+
+            contadorAltas++;
+        }
+
         mtxBuffer1.unlock();
+
+        mtxBuffer2.lock();
+        buffer2.push(p);
+        mtxBuffer2.unlock();
+
+        mtxConsola.lock();
+        std::cout << "paquete en cinta " << p.id << " prioridad " << p.prioridad << std::endl;
+        mtxConsola.unlock();
 
         signal(hayDatosBuffer2);
     }
-
-}*/
+}
 
 
 int main()
@@ -220,17 +169,18 @@ int main()
 
     thread p1(productor);
     thread c1(cargarEnCinta);
+    thread c2(cargarEnCinta);
     thread r1(consumidor);
 
     p1.join();
     c1.join();
+    c2.join();
     r1.join();
 
 
 }
+//mutex en zonas criticas
+//agregar funcion cargarEnCinta a la funcion Productor
+//añadir retardos
+//ejecutar los escenarios de pruebas
 
-//prioridad aleatoria
-//fecha de creacion
-//ubicar lock y unlock
-//unir crearPaquete y cargarEnCintan en una sola funcion
-//retardos simulados
