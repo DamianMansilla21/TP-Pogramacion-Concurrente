@@ -12,6 +12,7 @@ struct Paquete {
     int id;
     int prioridad;
     std::chrono::system_clock::time_point fechaDeCreacion;
+    std::chrono::system_clock::time_point ingresoProcessing; //momento en el que ingresa a la cinta
 };
 
 std::vector<Paquete> buffer1;//estanteria
@@ -128,6 +129,7 @@ void consumidor()
         }
         mtxBuffer1.unlock();
 
+        p.ingresoProcessing = chrono::system_clock::now(); //momento donde ingresa a la cinta
         // Pasar a la cinta
         mtxBuffer2.lock();
         buffer2.push(p);
@@ -136,6 +138,20 @@ void consumidor()
         mtxConsola.lock();
         cout << "paquete en cinta "<< p.id<< " prioridad "<< p.prioridad<< endl;
         mtxConsola.unlock();
+
+        //se respetan los 550 ms en el PROCESSING QUEUE
+        mtxBuffer2.lock();
+        Paquete proc = buffer2.front();
+        mtxBuffer2.unlock();
+
+        auto ahora = chrono::system_clock::now();
+
+        auto tiempoEnLaCinta =chrono::duration_cast<chrono::milliseconds>(ahora - proc.ingresoProcessing);
+
+        if (tiempoEnLaCinta.count() < 550)
+        {
+            this_thread::sleep_for(chrono::milliseconds(550 - tiempoEnLaCinta.count()));
+        }
 
         // Procesarlo inmediatamente
 
@@ -146,6 +162,7 @@ void consumidor()
 
         signal(HayEspacioBuffer2);
 
+        this_thread::sleep_for(chrono::milliseconds(270)); //retardo de 270ms entre cada liberación de paquete
         mtxPendientes.lock();
         paquetesPendientes--;
         mtxPendientes.unlock();
