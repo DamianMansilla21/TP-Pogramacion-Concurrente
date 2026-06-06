@@ -34,6 +34,11 @@ int contadorAltas = 0;
 int marcador = 0;
 int totalProducidos = 0;
 
+int SumAlta = 0; //suma el total de tiempo de espera de todos los paquetes con prioridad alta
+int SumBaja = 0; //suma el total de tiempo de espera de todos los paquetes con prioridad baja
+int CantAlta = 0; //la cantidad de paquetes de prioridad alta
+int cantBaja = 0; //la cantidad de paquetes de prioridad baja
+
 Semaforo hayDatosBuffer1; //waitingQueue
 //Semaforo hayDatosBuffer2; //Processing Queue
 Semaforo HayEspacioBuffer2; //Processing Queue
@@ -130,6 +135,18 @@ void consumidor()
         }
         mtxBuffer1.unlock();
 
+        // se calcula la cantidad de tiempo de espera de cada paquete
+        auto actual = chrono::system_clock::now(); //tiempo actual
+        auto espera = chrono::duration_cast<chrono::milliseconds>(actual - p.fechaDeCreacion).count();
+        if(p.prioridad == 1){
+                SumAlta += espera;
+                CantAlta++;
+                }else
+                {
+                    SumBaja += espera;
+                    cantBaja++;
+                }
+        
         p.ingresoProcessing = chrono::system_clock::now(); //momento donde ingresa a la cinta
         // Pasar a la cinta
         mtxBuffer2.lock();
@@ -196,9 +213,21 @@ int main()
 
     std::cout << "Total de paquetes producidos: " << totalProducidos << endl;
 
+    if(CantAlta > 0)
+{
+    double total1 = SumAlta / CantAlta;
+    cout << "Tiempo promedio de espera de paquetes con prioridad ALTA: "<< total1 << " ms" << endl;
+}
+
+if(cantBaja > 0)
+{
+    double total2 = SumBaja / cantBaja;
+    cout << "Tiempo promedio de espera de paquetes con prioridad BAJA: " << total2 << " ms" << endl;
+}
+
+return 0;
 }
 //mutex en zonas criticas/ evitar race conditions
-//añadir retardos
 //ejecutar los escenarios de pruebas
 
 
