@@ -70,20 +70,19 @@ void productor() //Guardamos los paquetes en el buffer 1
         mtxBuffer1.lock();
 
         if(p.prioridad == 1){
-
             buffer1.insert(buffer1.begin() + marcador, p);
-
             marcador++;
         }else{
-
             buffer1.push_back(p);
         }
+
+        totalProducidos++;
 
         mtxConsola.lock();
         std::cout << "paquete creado: ";
         std::cout << "ID: " << p.id << " Prioridad: " << p.prioridad << std::endl;
         mtxConsola.unlock();
-        totalProducidos++;
+
         mtxBuffer1.unlock();
 
 
@@ -98,6 +97,14 @@ void consumidor()
 {
     while(paquetesPendientes > 0)
     {
+        // Protegemos la lectura de paquetesPendientes dentro del while
+        mtxPendientes.lock();
+        if(paquetesPendientes <= 0) {
+            mtxPendientes.unlock();
+            break;
+        }
+        mtxPendientes.unlock();
+
         wait(hayDatosBuffer1);
         wait(HayEspacioBuffer2);
 
@@ -146,7 +153,7 @@ void consumidor()
                     SumBaja += espera;
                     cantBaja++;
                 }
-        
+
         p.ingresoProcessing = chrono::system_clock::now(); //momento donde ingresa a la cinta
         // Pasar a la cinta
         mtxBuffer2.lock();
